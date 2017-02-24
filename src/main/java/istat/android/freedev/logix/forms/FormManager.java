@@ -8,6 +8,8 @@ import istat.android.freedev.forms.Form;
 import istat.android.freedev.forms.FormFiller;
 import istat.android.freedev.forms.FormFlower;
 import istat.android.freedev.forms.FormValidator;
+import istat.android.freedev.forms.interfaces.FormValidable;
+import istat.android.freedev.forms.interfaces.FormValidatorBuilder;
 import istat.android.freedev.logix.forms.interfaces.FormPuller;
 import istat.android.freedev.logix.forms.interfaces.FormPusher;
 
@@ -21,7 +23,7 @@ public class FormManager {
     View managedView;
     FormFiller formFiller = FormFiller.use(managedForm);
     FormFlower formFlower = FormFlower.use(managedForm);
-    FormValidator formValidator;
+    FormValidable formValidator;
     View submitButton;
     OnSubmitListener onSubmitListener;
     FormPuller puller;
@@ -81,8 +83,19 @@ public class FormManager {
 
     public void start() {
         started = true;
-        formValidator = FormValidator.from(managedForm, managedView);
 
+    }
+
+    public void setFormValidator(FormValidator formValidator) {
+        this.formValidator = formValidator;
+    }
+
+    public void setFormValidator(FormValidable formValidator) {
+        this.formValidator = formValidator;
+    }
+
+    public void setFormValidator(FormValidatorBuilder builder) {
+        this.formValidator = builder.create(managedForm, managedView);
     }
 
     public void stop() {
