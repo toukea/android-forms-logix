@@ -7,8 +7,8 @@ import android.view.View;
 import istat.android.freedev.forms.Form;
 import istat.android.freedev.forms.FormFiller;
 import istat.android.freedev.forms.FormFlower;
+import istat.android.freedev.forms.FormState;
 import istat.android.freedev.forms.FormValidator;
-import istat.android.freedev.forms.interfaces.FormValidable;
 import istat.android.freedev.forms.interfaces.FormValidatorBuilder;
 import istat.android.freedev.logix.forms.interfaces.FormPuller;
 import istat.android.freedev.logix.forms.interfaces.FormPusher;
@@ -18,12 +18,13 @@ import istat.android.freedev.logix.forms.interfaces.FormPusher;
  */
 
 public class FormManager {
+    public final static String TAG_SUBMIT_BUTTON = "submit";
     Form managedForm = new Form();
     Activity activity;
     View managedView;
     FormFiller formFiller = FormFiller.use(managedForm);
     FormFlower formFlower = FormFlower.use(managedForm);
-    FormValidable formValidator;
+    FormValidator formValidator;
     View submitButton;
     OnSubmitListener onSubmitListener;
     FormPuller puller;
@@ -72,7 +73,17 @@ public class FormManager {
     }
 
     public void pull(FormPuller.PullCallback callback) {
+        FormState state = checkUp();
+        if (state != null || !state.hasError()) {
+//this.puller.u
+        }
+    }
 
+    public FormState checkUp() {
+        if (this.formValidator != null) {
+            return this.formValidator.validate(managedForm, managedView);
+        }
+        return null;
     }
 
     public void push(Form form, FormPusher.PushCallback callback) {
@@ -87,19 +98,25 @@ public class FormManager {
     }
 
     public void setFormValidator(FormValidator formValidator) {
-        this.formValidator = formValidator;
-    }
-
-    public void setFormValidator(FormValidable formValidator) {
-        this.formValidator = formValidator;
+        if (formValidator != null) {
+            this.formValidator = formValidator;
+        }
     }
 
     public void setFormValidator(FormValidatorBuilder builder) {
-        this.formValidator = builder.create(managedForm, managedView);
+        this.formValidator = builder.create();
     }
 
     public void stop() {
         started = false;
+        prepare();
+    }
+
+    private void prepare() {
+        if (submitButton == null) {
+            submitButton = managedView.findViewWithTag(TAG_SUBMIT_BUTTON);
+        }
+        addListener();
     }
 
     public void setOnSubmitListener(OnSubmitListener onSubmitListener) {
@@ -111,11 +128,22 @@ public class FormManager {
     }
 
     private void addListener() {
-
+        submitButton.setOnClickListener(mOnClickListener);
     }
 
-    private Form getForm() {
-        return formFiller.fillWith(getManagedView());
+    public Form getForm() {
+        return getForm(true);
+    }
+
+    public Form getForm(boolean clearOldValue) {
+        Form tmp = formFiller.fillWith(getManagedView());
+        if (clearOldValue) {
+            managedForm.clear();
+        }
+        if (tmp != null && !tmp.isEmpty()) {
+            managedForm.putAll(tmp);
+        }
+        return managedForm;
     }
 
     private void setForm(Form form) {
@@ -137,5 +165,23 @@ public class FormManager {
         } else {
             return null;
         }
+    }
+
+    public FormValidator getFormValidator() {
+        return formValidator;
+    }
+
+    View.OnClickListener mOnClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            if (view == submitButton) {
+                proceedSubmit(view);
+            }
+        }
+    };
+
+    private void proceedSubmit(View view) {
+        Form formToPush = getForm();
+        push(formToPush);
     }
 }
