@@ -10,8 +10,7 @@ import istat.android.freedev.forms.FormFlower;
 import istat.android.freedev.forms.FormState;
 import istat.android.freedev.forms.FormValidator;
 import istat.android.freedev.forms.interfaces.FormValidatorBuilder;
-import istat.android.freedev.logix.forms.interfaces.FormPuller;
-import istat.android.freedev.logix.forms.interfaces.FormPusher;
+import istat.android.freedev.logix.forms.interfaces.FormCallback;
 
 /**
  * Created by istat on 11/01/17.
@@ -72,10 +71,10 @@ public class FormManager {
         push(form, null);
     }
 
-    public void pull(FormPuller.PullCallback callback) {
+    public void pull(FormCallback callback) {
         FormState state = checkUp();
         if (state != null || !state.hasError()) {
-//this.puller.u
+//            this.puller.pull();
         }
     }
 
@@ -86,37 +85,42 @@ public class FormManager {
         return null;
     }
 
-    public void push(Form form, FormPusher.PushCallback callback) {
+    public void push(Form form, FormCallback callback) {
+        if (pusher != null) {
 
+        }
     }
 
     boolean started = false;
 
     public void start() {
         started = true;
-
+        prepare();
     }
 
-    public void setFormValidator(FormValidator formValidator) {
+    public FormManager setFormValidator(FormValidator formValidator) {
         if (formValidator != null) {
             this.formValidator = formValidator;
         }
+        return this;
     }
 
-    public void setFormValidator(FormValidatorBuilder builder) {
+    public FormManager setFormValidator(FormValidatorBuilder builder) {
         this.formValidator = builder.create();
+        return this;
     }
 
     public void stop() {
         started = false;
-        prepare();
     }
 
     private void prepare() {
-        if (submitButton == null) {
-            submitButton = managedView.findViewWithTag(TAG_SUBMIT_BUTTON);
+        if (managedView != null) {
+            if (submitButton == null) {
+                submitButton = managedView.findViewWithTag(TAG_SUBMIT_BUTTON);
+            }
+            addListener();
         }
-        addListener();
     }
 
     public void setOnSubmitListener(OnSubmitListener onSubmitListener) {
@@ -128,7 +132,9 @@ public class FormManager {
     }
 
     private void addListener() {
-        submitButton.setOnClickListener(mOnClickListener);
+        if (submitButton != null) {
+            submitButton.setOnClickListener(mOnClickListener);
+        }
     }
 
     public Form getForm() {
@@ -146,21 +152,78 @@ public class FormManager {
         return managedForm;
     }
 
-    private void setForm(Form form) {
+    public FormManager useForm(Form form) {
+        return useForm(form, true);
+    }
+
+    public FormManager useForm(Form form, boolean clearOld) {
+        if (clearOld) {
+            managedForm.clear();
+        }
+        this.managedForm.putAll(form);
         formFlower.flowInto(getManagedView());
+        return this;
     }
 
-    public static interface OnSubmitListener {
-        public void onSubmit(View v, Form form);
+    public interface OnSubmitListener {
+        void onSubmit(View v, Form form);
     }
 
-    private FormPusher.PushCallback mPushCallback = new FormPusher.PushCallback() {
+    private FormCallback mPushCallback = new FormCallback() {
+        @Override
+        public void onStart() {
+
+        }
+
+        @Override
+        public void onComplete(boolean state) {
+
+        }
+
+        @Override
+        public void onSuccess(Form form) {
+
+        }
+
+        @Override
+        public void onFaill(Throwable error) {
+
+        }
+
+        @Override
+        public void onAborted() {
+
+        }
     };
-    FormPuller.PullCallback mPullCallback = new FormPuller.PullCallback() {
+    FormCallback mPullCallback = new FormCallback() {
+        @Override
+        public void onStart() {
+
+        }
+
+        @Override
+        public void onComplete(boolean state) {
+
+        }
+
+        @Override
+        public void onSuccess(Form form) {
+
+        }
+
+        @Override
+        public void onFaill(Throwable error) {
+
+        }
+
+        @Override
+        public void onAborted() {
+
+        }
     };
 
     public Context getContext() {
-        if (managedForm != null) {
+        if (managedView != null) {
             return managedView.getContext();
         } else {
             return null;
