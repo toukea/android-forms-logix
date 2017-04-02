@@ -186,7 +186,7 @@ public class FormManager {
         }
 
         @Override
-        public void onFaill(Throwable error) {
+        public void onFail(Throwable error) {
 
         }
 
@@ -212,7 +212,7 @@ public class FormManager {
         }
 
         @Override
-        public void onFaill(Throwable error) {
+        public void onFail(Throwable error) {
 
         }
 

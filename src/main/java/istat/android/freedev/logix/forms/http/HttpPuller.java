@@ -54,14 +54,14 @@ public class HttpPuller extends FormPuller {
             @Override
             public void onHttpError(HttpAsyncQuery.HttpQueryResponse resp, HttpQueryError e) {
                 if (callback != null) {
-                    callback.onFaill(e);
+                    callback.onFail(e);
                 }
             }
 
             @Override
             public void onHttpFail(Exception e) {
                 if (callback != null) {
-                    callback.onFaill(e);
+                    callback.onFail(e);
                 }
             }
 

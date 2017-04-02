@@ -13,7 +13,7 @@ public interface FormCallback {
 
     void onSuccess(Form form);
 
-    void onFaill(Throwable error);
+    void onFail(Throwable error);
 
     void onAborted();
 }

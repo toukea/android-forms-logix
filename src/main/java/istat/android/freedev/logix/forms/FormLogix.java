@@ -2,6 +2,7 @@ package istat.android.freedev.logix.forms;
 
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.support.v4.app.FragmentManager;
 import android.view.View;
 
@@ -12,6 +13,12 @@ import android.view.View;
 public class FormLogix {
 
     public static FormManager from(Activity activity) {
+        FormManager formManager = new FormManager(activity.getWindow().getDecorView());
+        formManager.activity = activity;
+        return formManager;
+    }
+
+    public static FormManager from(Dialog dialog) {
         return null;
     }
 
@@ -23,7 +30,7 @@ public class FormLogix {
         return null;
     }
 
-    public FormManager createManager() {
+    FormManager createManager() {
         return null;
     }
 
