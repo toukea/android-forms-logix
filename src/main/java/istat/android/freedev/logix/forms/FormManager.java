@@ -141,6 +141,14 @@ public class FormManager {
         return getForm(true);
     }
 
+    public <T> T getFormAs(Class<T> cLass) throws IllegalAccessException, InstantiationException {
+        Form form = getForm();
+        if (form != null) {
+            return form.as(cLass);
+        }
+        return null;
+    }
+
     public Form getForm(boolean clearOldValue) {
         Form tmp = formFiller.fillWith(getManagedView());
         if (clearOldValue) {
