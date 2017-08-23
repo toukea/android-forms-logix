@@ -2,6 +2,8 @@ package istat.android.freedev.logix.forms;
 
 import android.app.Activity;
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 
 import istat.android.freedev.forms.Form;
@@ -10,7 +12,9 @@ import istat.android.freedev.forms.FormFlower;
 import istat.android.freedev.forms.FormState;
 import istat.android.freedev.forms.FormValidator;
 import istat.android.freedev.forms.interfaces.FormValidatorBuilder;
+import istat.android.freedev.logix.forms.interfaces.CompletionCallback;
 import istat.android.freedev.logix.forms.interfaces.FormCallback;
+import istat.android.freedev.logix.forms.interfaces.SubmitListener;
 
 /**
  * Created by istat on 11/01/17.
@@ -18,16 +22,21 @@ import istat.android.freedev.logix.forms.interfaces.FormCallback;
 
 public class FormManager {
     public final static String TAG_SUBMIT_BUTTON = "submit";
-    Form managedForm = new Form();
+    final Form managedForm = new Form();
     Activity activity;
-    View managedView;
-    FormFiller formFiller = FormFiller.use(managedForm);
-    FormFlower formFlower = FormFlower.use(managedForm);
+    final View managedView;
+    final FormFiller formFiller = FormFiller.using(managedForm);
+    final FormFlower formFlower = FormFlower.using(managedForm);
     FormValidator formValidator;
     View submitButton;
     OnSubmitListener onSubmitListener;
     FormPuller puller;
     FormPusher pusher;
+    CompletionCallback<FormState> checkupCallback;
+    FormCallback pushCallback, pullCallback;
+    Handler handler = new Handler(Looper.getMainLooper());
+    boolean autoCheckupEnable = true;
+    SubmitListener submitListener;
 
     FormManager(View managedView) {
         this.managedView = managedView;
@@ -63,19 +72,29 @@ public class FormManager {
         this.submitButton = submitButton;
     }
 
-    public void pull() {
-        pull(null);
+    public Thread checkUpAsync() {
+        return checkUpAsync(null);
     }
 
-    public void push(Form form) {
-        push(form, null);
-    }
+    public Thread checkUpAsync(final CompletionCallback<FormState> callback) {
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                final FormState state = checkUp();
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (callback != null) {
+                            callback.onComplete(state);
+                        }
+                        checkupCallback.onComplete(state);
+                    }
+                });
 
-    public void pull(FormCallback callback) {
-        FormState state = checkUp();
-        if (state != null || !state.hasError()) {
-//            this.puller.pull();
-        }
+            }
+        };
+        thread.start();
+        return thread;
     }
 
     public FormState checkUp() {
@@ -83,12 +102,6 @@ public class FormManager {
             return this.formValidator.validate(managedForm, managedView);
         }
         return null;
-    }
-
-    public void push(Form form, FormCallback callback) {
-        if (pusher != null) {
-
-        }
     }
 
     boolean started = false;
@@ -107,6 +120,18 @@ public class FormManager {
 
     public FormManager setFormValidator(FormValidatorBuilder builder) {
         this.formValidator = builder.create();
+        return this;
+    }
+
+    public FormManager setFormValidator(FormValidator formValidator, FormValidator.ValidationListener listener) {
+        setFormValidator(formValidator);
+        this.formValidator.setValidationListener(listener);
+        return this;
+    }
+
+    public FormManager setFormValidator(FormValidatorBuilder builder, FormValidator.ValidationListener listener) {
+        setFormValidator(builder);
+        this.formValidator.setValidationListener(listener);
         return this;
     }
 
@@ -177,59 +202,6 @@ public class FormManager {
         void onSubmit(View v, Form form);
     }
 
-    private FormCallback mPushCallback = new FormCallback() {
-        @Override
-        public void onStart() {
-
-        }
-
-        @Override
-        public void onComplete(boolean state) {
-
-        }
-
-        @Override
-        public void onSuccess(Form form) {
-
-        }
-
-        @Override
-        public void onFail(Throwable error) {
-
-        }
-
-        @Override
-        public void onAborted() {
-
-        }
-    };
-    FormCallback mPullCallback = new FormCallback() {
-        @Override
-        public void onStart() {
-
-        }
-
-        @Override
-        public void onComplete(boolean state) {
-
-        }
-
-        @Override
-        public void onSuccess(Form form) {
-
-        }
-
-        @Override
-        public void onFail(Throwable error) {
-
-        }
-
-        @Override
-        public void onAborted() {
-
-        }
-    };
-
     public Context getContext() {
         if (managedView != null) {
             return managedView.getContext();
@@ -251,8 +223,118 @@ public class FormManager {
         }
     };
 
+
+    public FormManager setCheckupCallback(CompletionCallback<FormState> checkupCallback) {
+        this.checkupCallback = checkupCallback;
+        return this;
+    }
+
+    public FormManager setPullCallback(FormCallback pullCallback) {
+        this.pullCallback = pullCallback;
+        return this;
+    }
+
+    public FormManager setPushCallback(FormCallback pushCallback) {
+        this.pushCallback = pushCallback;
+        return this;
+    }
+
+    public FormManager setFormFieldNames(String... names) {
+        getFormFiller().setFieldToFill(names);
+        return this;
+    }
+
+    public FormManager setAutoCheckupEnable(boolean autoCheckupEnable) {
+        this.autoCheckupEnable = autoCheckupEnable;
+        return this;
+    }
+
+    public void pull() {
+        pull(pullCallback);
+    }
+
+    public void push() {
+        Form form = getForm(true);
+        push(pushCallback);
+    }
+
+    public void push(FormCallback callback) {
+        if (autoCheckupEnable) {
+            checkUpAsync(new CompletionCallback<FormState>() {
+                @Override
+                public void onComplete(FormState state) {
+                    push(state.getForm(), pushCallback);
+                }
+            });
+        } else {
+            push(getForm(true), pushCallback);
+        }
+    }
+
     private void proceedSubmit(View view) {
-        Form formToPush = getForm();
-        push(formToPush);
+        if (submitListener != null) {
+            submitListener.onSubmit(view);
+        }
+        push(pushCallback);
+    }
+
+    public void pull(final FormCallback callback) {
+        if (puller != null) {
+            puller.pull(new FormCallback() {
+                @Override
+                public void onStart() {
+                    if (callback != null) {
+                        callback.onStart();
+                    }
+                }
+
+                @Override
+                public void onComplete(boolean state) {
+                    if (callback != null) {
+                        callback.onComplete(state);
+                    }
+                }
+
+                @Override
+                public void onSuccess(Form form) {
+                    if (form != null) {
+                        managedForm.putAll(form);
+                        refresh();
+                    }
+                    if (callback != null) {
+                        callback.onSuccess(form);
+                    }
+                }
+
+                @Override
+                public void onFail(Throwable error) {
+                    if (callback != null) {
+                        callback.onFail(error);
+                    }
+                }
+
+                @Override
+                public void onAborted() {
+                    if (callback != null) {
+                        callback.onAborted();
+                    }
+                }
+            });
+        }
+    }
+
+    private void refresh() {
+        getFormFlower().flowInto(managedView);
+    }
+
+    private void push(Form form, FormCallback callback) {
+        if (pusher != null) {
+            pusher.push(form, callback);
+        }
+    }
+
+    public FormManager setSubmitListener(SubmitListener submitListener) {
+        this.submitListener = submitListener;
+        return this;
     }
 }

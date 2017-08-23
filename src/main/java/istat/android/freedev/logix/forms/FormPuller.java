@@ -1,6 +1,5 @@
 package istat.android.freedev.logix.forms;
 
-import istat.android.freedev.forms.Form;
 import istat.android.freedev.logix.forms.interfaces.FormCallback;
 
 /**
