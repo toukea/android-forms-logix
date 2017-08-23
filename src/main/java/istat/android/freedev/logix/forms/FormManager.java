@@ -2,9 +2,13 @@ package istat.android.freedev.logix.forms;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+
+import com.istat.freedev.processor.Process;
+import com.istat.freedev.processor.Processor;
 
 import istat.android.freedev.forms.Form;
 import istat.android.freedev.forms.FormFiller;
@@ -14,6 +18,8 @@ import istat.android.freedev.forms.FormValidator;
 import istat.android.freedev.forms.interfaces.FormValidatorBuilder;
 import istat.android.freedev.logix.forms.interfaces.CompletionCallback;
 import istat.android.freedev.logix.forms.interfaces.FormCallback;
+import istat.android.freedev.logix.forms.interfaces.Puller;
+import istat.android.freedev.logix.forms.interfaces.Pusher;
 import istat.android.freedev.logix.forms.interfaces.SubmitListener;
 
 /**
@@ -30,24 +36,27 @@ public class FormManager {
     FormValidator formValidator;
     View submitButton;
     OnSubmitListener onSubmitListener;
-    FormPuller puller;
-    FormPusher pusher;
+    Puller<Form> puller;
+    Pusher<Form, Form> pusher;
     CompletionCallback<FormState> checkupCallback;
     FormCallback pushCallback, pullCallback;
     Handler handler = new Handler(Looper.getMainLooper());
     boolean autoCheckupEnable = true;
     SubmitListener submitListener;
+    Process<Form, Throwable> pullProcess;
+    Process<Form, Throwable> pushProcess;
 
-    FormManager(View managedView) {
+    FormManager(Activity activity, View managedView) {
+        this.activity = activity;
         this.managedView = managedView;
     }
 
-    public FormManager setPusher(FormPusher pusher) {
+    public FormManager setPusher(Pusher pusher) {
         this.pusher = pusher;
         return this;
     }
 
-    public FormManager setPuller(FormPuller puller) {
+    public FormManager setPuller(Puller puller) {
         this.puller = puller;
         return this;
     }
@@ -57,7 +66,10 @@ public class FormManager {
     }
 
     public Activity getActivity() {
-        return activity;
+        if (activity != null) {
+            return this.activity;
+        }
+        return getActivity(managedView);
     }
 
     public FormFiller getFormFiller() {
@@ -280,46 +292,29 @@ public class FormManager {
 
     public void pull(final FormCallback callback) {
         if (puller != null) {
-            puller.pull(new FormCallback() {
-                @Override
-                public void onStart() {
-                    if (callback != null) {
-                        callback.onStart();
-                    }
+            try {
+                if (callback != null) {
+                    callback.onStart();
                 }
-
-                @Override
-                public void onComplete(boolean state) {
-                    if (callback != null) {
-                        callback.onComplete(state);
+                pullProcess = puller.onPull();
+                final Process<Form, Throwable> finalProcess = pullProcess;
+                pullProcess.runWhen(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (callback != null) {
+                            boolean success = finalProcess.isSuccess();
+                            callback.onComplete(success);
+                            if (success) {
+                                callback.onSuccess(finalProcess.getResult());
+                            }
+                        }
                     }
+                });
+            } catch (Exception e) {
+                if (callback != null) {
+                    callback.onFail(e);
                 }
-
-                @Override
-                public void onSuccess(Form form) {
-                    if (form != null) {
-                        managedForm.putAll(form);
-                        refresh();
-                    }
-                    if (callback != null) {
-                        callback.onSuccess(form);
-                    }
-                }
-
-                @Override
-                public void onFail(Throwable error) {
-                    if (callback != null) {
-                        callback.onFail(error);
-                    }
-                }
-
-                @Override
-                public void onAborted() {
-                    if (callback != null) {
-                        callback.onAborted();
-                    }
-                }
-            });
+            }
         }
     }
 
@@ -327,14 +322,63 @@ public class FormManager {
         getFormFlower().flowInto(managedView);
     }
 
-    private void push(Form form, FormCallback callback) {
+    private void push(Form form, final FormCallback callback) {
         if (pusher != null) {
-            pusher.push(form, callback);
+            try {
+                if (callback != null) {
+                    callback.onStart();
+                }
+                pushProcess = pusher.onPush(form);
+                final Process<Form, Throwable> finalProcess = pushProcess;
+                pushProcess.runWhen(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (callback != null) {
+                            boolean success = finalProcess.isSuccess();
+                            callback.onComplete(success);
+                            if (success) {
+                                callback.onSuccess(finalProcess.getResult());
+                            }
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                if (callback != null) {
+                    callback.onFail(e);
+                }
+            }
         }
     }
 
     public FormManager setSubmitListener(SubmitListener submitListener) {
         this.submitListener = submitListener;
         return this;
+    }
+
+    public boolean isPulling() {
+        return pullProcess != null && pullProcess.isRunning();
+    }
+
+    public boolean isPushing() {
+        return pushProcess != null && pushProcess.isRunning();
+    }
+
+    public boolean cancelPulling() {
+        return pullProcess != null && pullProcess.cancel();
+    }
+
+    public boolean cancelPushing() {
+        return pushProcess != null && pushProcess.cancel();
+    }
+
+    public static Activity getActivity(View view) {
+        Context context = view.getContext();
+        while (context instanceof ContextWrapper) {
+            if (context instanceof Activity) {
+                return (Activity) context;
+            }
+            context = ((ContextWrapper) context).getBaseContext();
+        }
+        return null;
     }
 }

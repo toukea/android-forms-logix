@@ -13,7 +13,7 @@ import android.view.View;
 public class FormLogix {
 
     public static FormManager from(Activity activity) {
-        FormManager formManager = new FormManager(activity.getWindow().getDecorView());
+        FormManager formManager = new FormManager(activity, activity.getWindow().getDecorView());
         formManager.activity = activity;
         return formManager;
     }
